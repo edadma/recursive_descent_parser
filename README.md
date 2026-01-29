@@ -3,7 +3,9 @@
 ![Maven Central](https://img.shields.io/maven-central/v/io.github.edadma/recursive_descent_parser_3)
 [![Last Commit](https://img.shields.io/github/last-commit/edadma/recursive_descent_parser)](https://github.com/edadma/recursive_descent_parser/commits)
 ![GitHub](https://img.shields.io/github/license/edadma/recursive_descent_parser)
-![Scala Version](https://img.shields.io/badge/Scala-3.8-blue.svg)
+![Scala Version](https://img.shields.io/badge/Scala-3.8.1-blue.svg)
+![ScalaJS Version](https://img.shields.io/badge/Scala.js-1.20.2-blue.svg)
+![Scala Native Version](https://img.shields.io/badge/Scala_Native-0.5.10-blue.svg)
 
 A table-driven precedence climbing parser for Scala 3, designed for parsing Prolog and other languages with configurable operator precedence.
 
