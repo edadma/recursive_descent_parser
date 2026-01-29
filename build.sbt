@@ -56,8 +56,8 @@ lazy val recursive_descent_parser = crossProject(JSPlatform, JVMPlatform, Native
 //      "io.github.edadma" %%% "cross_platform" % "0.0.20"
 //    ),
     libraryDependencies ++= Seq(
-//      "com.github.scopt" %%% "scopt" % "4.1.0",
-//      "com.lihaoyi" %%% "pprint" % "0.9.6" % "test",
+      "io.github.edadma" %%% "char_reader" % "0.1.24",
+      "org.scalatest"    %%% "scalatest"   % "3.2.19" % "test",
     ),
     publishMavenStyle      := true,
     Test / publishArtifact := false,
