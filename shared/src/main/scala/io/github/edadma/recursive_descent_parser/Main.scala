@@ -17,6 +17,10 @@ package io.github.edadma.recursive_descent_parser
     "'+'(1, 2)",
     ".(a, b)",
     "+(a + b)",
+    "0'a",
+    "0xFF",
+    "0b1010",
+    "1_000_000",
   )
 
   for expr <- examples do

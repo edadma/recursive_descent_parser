@@ -323,28 +323,27 @@ class Tests extends AnyFreeSpec with Matchers:
     }
   }
 
-  // Document what's NOT YET supported but would be needed for full Prolog
-  "Not yet implemented (future work)" - {
-    "character codes 0'a" ignore {
-      // Prolog: 0'a = 97 (ASCII code of 'a')
-      // parse("0'a") shouldBe "97"
-      pending
-    }
-    "hex numbers 0xFF" ignore {
-      // parse("0xFF") shouldBe "255"
-      pending
-    }
-    "binary numbers 0b1010" ignore {
-      // parse("0b1010") shouldBe "10"
-      pending
-    }
-    "octal numbers 0o77" ignore {
-      // parse("0o77") shouldBe "63"
-      pending
-    }
-    "underscore in numbers" ignore {
-      // Some Prologs: 1_000_000 = 1000000
-      // parse("1_000_000") shouldBe "1000000"
-      pending
-    }
+  "Special number formats" - {
+    "character code lowercase" in { parse("0'a") shouldBe "97" }
+    "character code uppercase" in { parse("0'A") shouldBe "65" }
+    "character code space" in { parse("0' ") shouldBe "32" }
+    "character code newline escape" in { parse("0'\\n") shouldBe "10" }
+    "character code tab escape" in { parse("0'\\t") shouldBe "9" }
+    "character code backslash" in { parse("0'\\\\") shouldBe "92" }
+    "hex lowercase" in { parse("0xff") shouldBe "255" }
+    "hex uppercase" in { parse("0XFF") shouldBe "255" }
+    "hex mixed" in { parse("0xDeAdBeEf") shouldBe "3735928559" }
+    "binary" in { parse("0b1010") shouldBe "10" }
+    "binary uppercase" in { parse("0B1111") shouldBe "15" }
+    "octal" in { parse("0o77") shouldBe "63" }
+    "octal uppercase" in { parse("0O777") shouldBe "511" }
+    "underscore in integer" in { parse("1_000_000") shouldBe "1000000" }
+    "underscore in parts" in { parse("123_456_789") shouldBe "123456789" }
+  }
+
+  "Number formats in expressions" - {
+    "char code in arithmetic" in { parse("0'a + 1") shouldBe "+(97,1)" }
+    "hex in comparison" in { parse("X =:= 0xFF") shouldBe "=:=(X,255)" }
+    "binary in list" in { parse("[0b1, 0b10, 0b11]") shouldBe ".(1,.(2,.(3,[])))" }
+    "underscore number in compound" in { parse("big(1_000_000)") shouldBe "big(1000000)" }
   }

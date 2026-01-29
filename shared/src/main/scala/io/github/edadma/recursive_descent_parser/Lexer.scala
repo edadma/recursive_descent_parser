@@ -9,6 +9,8 @@ class Lexer(
     symbols: Set[String],
     lineComment: Option[String] = Some("%"),
     blockComment: Option[(String, String)] = Some(("/*", "*/")),
+    numberReaders: List[NumberReader] = Nil,
+    allowUnderscoreInNumbers: Boolean = false,
 ):
   import Token.*
 
@@ -76,11 +78,18 @@ class Lexer(
     (tok, rest)
 
   private def readNumber(r: CharReader): (Token, CharReader) =
-    val start = r
-    val (intPart, afterInt) = consumeWhile(r, _.isDigit)
+    // Try special number readers first (char codes, hex, binary, octal)
+    numberReaders.iterator
+      .flatMap(_.read(r))
+      .nextOption()
+      .getOrElse(readDecimalNumber(r))
 
-    if afterInt.ch == '.' && afterInt.next.ch.isDigit then
-      val (fracPart, afterFrac) = consumeWhile(afterInt.next, _.isDigit)
+  private def readDecimalNumber(r: CharReader): (Token, CharReader) =
+    val start = r
+    val (intPart, afterInt) = consumeDigits(r)
+
+    if afterInt.ch == '.' && afterInt.more && afterInt.next.ch.isDigit then
+      val (fracPart, afterFrac) = consumeDigits(afterInt.next)
       val (expPart, afterExp) = readExponent(afterFrac)
       val value = s"$intPart.$fracPart$expPart".toDouble
       (FloatTok(start, value), afterExp)
@@ -90,6 +99,24 @@ class Lexer(
       (FloatTok(start, value), afterExp)
     else
       (IntTok(start, intPart.toLong), afterInt)
+
+  private def consumeDigits(r: CharReader): (String, CharReader) =
+    if allowUnderscoreInNumbers then
+      consumeWithUnderscores(r, _.isDigit)
+    else
+      consumeWhile(r, _.isDigit)
+
+  @tailrec
+  private def consumeWithUnderscores(r: CharReader, pred: Char => Boolean, acc: StringBuilder = new StringBuilder): (String, CharReader) =
+    if r.eoi then (acc.toString.filterNot(_ == '_'), r)
+    else if pred(r.ch) then
+      acc += r.ch
+      consumeWithUnderscores(r.next, pred, acc)
+    else if r.ch == '_' && r.more && pred(r.next.ch) then
+      // underscore followed by valid digit - skip it
+      consumeWithUnderscores(r.next, pred, acc)
+    else
+      (acc.toString.filterNot(_ == '_'), r)
 
   private def readExponent(r: CharReader): (String, CharReader) =
     if r.ch == 'e' || r.ch == 'E' then

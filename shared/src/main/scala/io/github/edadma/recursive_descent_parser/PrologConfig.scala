@@ -72,6 +72,20 @@ object PrologConfig:
     BracketConfig("{", "}", ",", None, buildCurly),
   )
 
-  def lexer: Lexer = Lexer(symbols)
+  // Prolog number readers: character codes, hex, binary, octal
+  val numberReaders: List[NumberReader] = List(
+    CharCodeReader,  // 0'a -> 97
+    HexReader,       // 0xFF -> 255
+    BinaryReader,    // 0b1010 -> 10
+    OctalReader,     // 0o77 -> 63
+  )
+
+  def lexer: Lexer = Lexer(
+    symbols,
+    lineComment = Some("%"),
+    blockComment = Some(("/*", "*/")),
+    numberReaders = numberReaders,
+    allowUnderscoreInNumbers = true,  // 1_000_000 -> 1000000
+  )
 
   def parser: Parser = Parser(operators, brackets)
