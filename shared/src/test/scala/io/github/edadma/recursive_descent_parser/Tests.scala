@@ -9,6 +9,10 @@ class Tests extends AnyFreeSpec with Matchers:
 
   def parse(input: String): String = parser.parse(input, lexer).toString
 
+  def parseFloat(input: String): Double = parser.parse(input, lexer) match
+    case Term.Float(_, v) => v
+    case other            => fail(s"expected Float, got $other")
+
   "Atoms" - {
     "simple atom" in { parse("foo") shouldBe "foo" }
     "atom with digits" in { parse("foo123") shouldBe "foo123" }
@@ -28,8 +32,8 @@ class Tests extends AnyFreeSpec with Matchers:
     "integer" in { parse("42") shouldBe "42" }
     "zero" in { parse("0") shouldBe "0" }
     "float" in { parse("3.14") shouldBe "3.14" }
-    "float with exponent" in { parse("1.5e10") shouldBe "1.5E10" }
-    "integer exponent" in { parse("2E5") shouldBe "200000.0" }
+    "float with exponent" in { parseFloat("1.5e10") shouldBe 1.5e10 }
+    "integer exponent" in { parseFloat("2E5") shouldBe 200000.0 }
   }
 
   "Strings" - {
