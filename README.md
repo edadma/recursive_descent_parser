@@ -20,7 +20,7 @@ A table-driven precedence climbing parser for Scala 3, designed for parsing Prol
 ## Installation
 
 ```scala
-libraryDependencies += "io.github.edadma" %%% "recursive_descent_parser" % "0.0.1"
+libraryDependencies += "io.github.edadma" %%% "recursive_descent_parser" % "0.0.2"
 ```
 
 ## Quick Start
