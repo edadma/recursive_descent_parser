@@ -90,7 +90,7 @@ class Parser(
 
   // Core precedence climbing algorithm
   private def parseExpr(maxPrec: Int): Term =
-    var left = parsePrefixOrPrimary(maxPrec)
+    var (left, leftPrec) = parsePrefixOrPrimary(maxPrec)
 
     while !isEOI do
       val opName = current match
@@ -101,18 +101,19 @@ class Parser(
       // Try postfix first, then infix
       postfixOp(opName) match
         case Some(entry) if entry.precedence <= maxPrec =>
-          val canApply = entry.fixity.leftY || !hasSamePrecedence(left, entry.precedence)
+          val canApply = entry.fixity.leftY || leftPrec != entry.precedence
           if canApply then
             val opPos = pos
             advance()
             left = Compound(opPos, opName, List(left))
+            leftPrec = entry.precedence
           else
             return left
 
         case _ =>
           infixOp(opName) match
             case Some(entry) if entry.precedence <= maxPrec =>
-              val canApply = entry.fixity.leftY || !hasSamePrecedence(left, entry.precedence)
+              val canApply = entry.fixity.leftY || leftPrec != entry.precedence
               if canApply then
                 val opPos = pos
                 advance()
@@ -121,6 +122,7 @@ class Parser(
                   else entry.precedence - 1
                 val right = parseExpr(rightMaxPrec)
                 left = Compound(opPos, opName, List(left, right))
+                leftPrec = entry.precedence
               else
                 return left
             case _ =>
@@ -128,14 +130,9 @@ class Parser(
 
     left
 
-  // Check if term was parsed at given precedence (for associativity checking)
-  private def hasSamePrecedence(term: Term, prec: Int): Boolean =
-    term match
-      case Compound(_, name, _) =>
-        operators.get(name).exists(_.exists(_.precedence == prec))
-      case _ => false
-
-  private def parsePrefixOrPrimary(maxPrec: Int): Term =
+  // Returns (term, effectivePrecedence) — primaries and parenthesized exprs get 0,
+  // prefix operator applications get the operator's precedence
+  private def parsePrefixOrPrimary(maxPrec: Int): (Term, Int) =
     current match
       case SymTok(opPos, opName) =>
         // Symbolic prefix operators are always treated as operators
@@ -147,9 +144,9 @@ class Parser(
               if entry.fixity.rightY then entry.precedence
               else entry.precedence - 1
             val arg = parseExpr(argMaxPrec)
-            Compound(opPos, opName, List(arg))
+            (Compound(opPos, opName, List(arg)), entry.precedence)
           case _ =>
-            parsePrimary()
+            (parsePrimary(), 0)
 
       case AtomTok(opPos, opName) =>
         // Alphabetic operators (like 'not') followed by '(' are functors
@@ -160,19 +157,19 @@ class Parser(
             peekNext match
               case SymTok(_, "(") =>
                 // Treat as functor, not prefix operator
-                parsePrimary()
+                (parsePrimary(), 0)
               case _ =>
                 advance()
                 val argMaxPrec =
                   if entry.fixity.rightY then entry.precedence
                   else entry.precedence - 1
                 val arg = parseExpr(argMaxPrec)
-                Compound(opPos, opName, List(arg))
+                (Compound(opPos, opName, List(arg)), entry.precedence)
           case _ =>
-            parsePrimary()
+            (parsePrimary(), 0)
 
       case _ =>
-        parsePrimary()
+        (parsePrimary(), 0)
 
   private def parsePrimary(): Term =
     current match

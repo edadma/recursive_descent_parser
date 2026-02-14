@@ -301,6 +301,17 @@ class Tests extends AnyFreeSpec with Matchers:
       // But different operators at same precedence should work
       parse("X = Y, A = B") shouldBe ",(=(X,Y),=(A,B))"
     }
+    "parenthesized expr as operand of xfx at same op-table precedence" in {
+      // + has a 200/fy entry in the table; ** is 200/xfx
+      // (1 + 2) is parenthesized so its effective precedence is 0,
+      // but hasSamePrecedence looks up "+" and finds the 200 entry
+      parse("(1 + 2) ** 3") shouldBe "**(+(1,2),3)"
+    }
+    "parenthesized xfx as operand of same-precedence xfx" in {
+      // = and < are both 700/xfx; without parens this correctly fails,
+      // but (a = b) has effective precedence 0 so it should work as left of <
+      parse("(a = b) < c") shouldBe "<(=(a,b),c)"
+    }
   }
 
   "Program parsing" - {
