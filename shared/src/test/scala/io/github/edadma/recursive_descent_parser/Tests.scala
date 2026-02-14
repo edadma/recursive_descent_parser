@@ -362,3 +362,43 @@ class Tests extends AnyFreeSpec with Matchers:
     "binary in list" in { parse("[0b1, 0b10, 0b11]") shouldBe ".(1,.(2,.(3,[])))" }
     "underscore number in compound" in { parse("big(1_000_000)") shouldBe "big(1000000)" }
   }
+
+  "parseExprPartial with stop-set" - {
+    def partial(input: String, stopAt: Set[String]): (String, List[Token]) =
+      val toks = lexer.tokenize(input)
+      val (term, rest) = parser.parseExprPartial(toks, stopAt)
+      (term.toString, rest.toList)
+
+    "stop at keyword (atom token)" in {
+      val (term, rest) = partial("1 + 2 then 3", Set("then"))
+      term shouldBe "+(1,2)"
+      rest.head shouldBe a[Token.AtomTok]
+      rest.head.asInstanceOf[Token.AtomTok].name shouldBe "then"
+    }
+    "stop at symbol operator" in {
+      val (term, rest) = partial("a + b; c", Set(";"))
+      term shouldBe "+(a,b)"
+      rest.head shouldBe a[Token.SymTok]
+      rest.head.asInstanceOf[Token.SymTok].sym shouldBe ";"
+    }
+    "prefix operator propagates stop-set" in {
+      val (term, rest) = partial("- x then y", Set("then"))
+      term shouldBe "-(x)"
+      rest.head.asInstanceOf[Token.AtomTok].name shouldBe "then"
+    }
+    "no stop token parses to EOI" in {
+      val (term, rest) = partial("1 + 2", Set("then"))
+      term shouldBe "+(1,2)"
+      rest.head shouldBe a[Token.EOI]
+    }
+    "stop token inside parens is ignored" in {
+      val (term, rest) = partial("f(a, b) then c", Set("then"))
+      term shouldBe "f(a,b)"
+      rest.head.asInstanceOf[Token.AtomTok].name shouldBe "then"
+    }
+    "stop token inside brackets is ignored" in {
+      val (term, rest) = partial("[a, b] then c", Set("then"))
+      term shouldBe ".(a,.(b,[]))"
+      rest.head.asInstanceOf[Token.AtomTok].name shouldBe "then"
+    }
+  }

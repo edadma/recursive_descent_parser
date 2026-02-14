@@ -67,36 +67,47 @@ class Parser(
 
   def parse(input: String, lexer: Lexer): Term =
     tokens = lexer.tokenize(input)
-    val result = parseExpr(maxPrecedence)
+    val (result, _) = parseExpr(maxPrecedence)
     if !isEOI then
       pos.error("unexpected token after expression")
     result
 
   def parse(toks: LazyList[Token]): Term =
     tokens = toks
-    val result = parseExpr(maxPrecedence)
+    val (result, _) = parseExpr(maxPrecedence)
     if !isEOI then
       pos.error("unexpected token after expression")
     result
+
+  def parseExprPartial(
+      toks: LazyList[Token],
+      stopAt: Set[String] = Set.empty,
+  ): (Term, LazyList[Token]) =
+    tokens = toks
+    val (result, _) = parseExpr(maxPrecedence, stopAt)
+    (result, tokens)
 
   // Parse terms separated by '.' (for Prolog programs)
   def parseProgram(input: String, lexer: Lexer): List[Term] =
     tokens = lexer.tokenize(input)
     val terms = mutable.ListBuffer[Term]()
     while !isEOI do
-      terms += parseExpr(maxPrecedence)
+      val (term, _) = parseExpr(maxPrecedence)
+      terms += term
       if !isEOI then consume(".")
     terms.toList
 
   // Core precedence climbing algorithm
-  private def parseExpr(maxPrec: Int): Term =
-    var (left, leftPrec) = parsePrefixOrPrimary(maxPrec)
+  private def parseExpr(maxPrec: Int, stopAt: Set[String] = Set.empty): (Term, Int) =
+    var (left, leftPrec) = parsePrefixOrPrimary(maxPrec, stopAt)
 
     while !isEOI do
       val opName = current match
-        case SymTok(_, s) => s
+        case SymTok(_, s) if stopAt.contains(s)  => return (left, leftPrec)
+        case AtomTok(_, s) if stopAt.contains(s) => return (left, leftPrec)
+        case SymTok(_, s)  => s
         case AtomTok(_, s) => s
-        case _ => return left
+        case _             => return (left, leftPrec)
 
       // Try postfix first, then infix
       postfixOp(opName) match
@@ -108,7 +119,7 @@ class Parser(
             left = Compound(opPos, opName, List(left))
             leftPrec = entry.precedence
           else
-            return left
+            return (left, leftPrec)
 
         case _ =>
           infixOp(opName) match
@@ -120,19 +131,19 @@ class Parser(
                 val rightMaxPrec =
                   if entry.fixity.rightY then entry.precedence
                   else entry.precedence - 1
-                val right = parseExpr(rightMaxPrec)
+                val (right, _) = parseExpr(rightMaxPrec, stopAt)
                 left = Compound(opPos, opName, List(left, right))
                 leftPrec = entry.precedence
               else
-                return left
+                return (left, leftPrec)
             case _ =>
-              return left
+              return (left, leftPrec)
 
-    left
+    (left, leftPrec)
 
   // Returns (term, effectivePrecedence) — primaries and parenthesized exprs get 0,
   // prefix operator applications get the operator's precedence
-  private def parsePrefixOrPrimary(maxPrec: Int): (Term, Int) =
+  private def parsePrefixOrPrimary(maxPrec: Int, stopAt: Set[String]): (Term, Int) =
     current match
       case SymTok(opPos, opName) =>
         // Symbolic prefix operators are always treated as operators
@@ -143,7 +154,7 @@ class Parser(
             val argMaxPrec =
               if entry.fixity.rightY then entry.precedence
               else entry.precedence - 1
-            val arg = parseExpr(argMaxPrec)
+            val (arg, _) = parseExpr(argMaxPrec, stopAt)
             (Compound(opPos, opName, List(arg)), entry.precedence)
           case _ =>
             (parsePrimary(), 0)
@@ -163,7 +174,7 @@ class Parser(
                 val argMaxPrec =
                   if entry.fixity.rightY then entry.precedence
                   else entry.precedence - 1
-                val arg = parseExpr(argMaxPrec)
+                val (arg, _) = parseExpr(argMaxPrec, stopAt)
                 (Compound(opPos, opName, List(arg)), entry.precedence)
           case _ =>
             (parsePrimary(), 0)
@@ -205,7 +216,7 @@ class Parser(
           case None =>
             if sym == "(" then
               advance()
-              val inner = parseExpr(maxPrecedence)
+              val (inner, _) = parseExpr(maxPrecedence)
               consume(")")
               inner
             else
@@ -231,9 +242,11 @@ class Parser(
 
   private def parseArgs(): List[Term] =
     val args = mutable.ListBuffer[Term]()
-    args += parseExpr(999) // Below comma precedence
+    val (first, _) = parseExpr(999) // Below comma precedence
+    args += first
     while tryConsume(",") do
-      args += parseExpr(999)
+      val (arg, _) = parseExpr(999)
+      args += arg
     args.toList
 
   private def parseBracketedExpr(startPos: CharReader, config: BracketConfig): Term =
@@ -242,14 +255,17 @@ class Parser(
       config.build(startPos, Nil, None)
     else
       val elements = mutable.ListBuffer[Term]()
-      elements += parseExpr(999) // Below comma
+      val (first, _) = parseExpr(999) // Below comma
+      elements += first
 
       while tryConsume(config.separator) do
-        elements += parseExpr(999)
+        val (elem, _) = parseExpr(999)
+        elements += elem
 
       val tail = config.tailSeparator match
         case Some(sep) if tryConsume(sep) =>
-          Some(parseExpr(999))
+          val (t, _) = parseExpr(999)
+          Some(t)
         case _ => None
 
       consume(config.close)
