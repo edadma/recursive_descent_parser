@@ -14,6 +14,7 @@ A table-driven precedence climbing parser for Scala 3, designed for parsing Prol
 - **Configurable operator precedence and associativity** - all Prolog fixity types (xfx, xfy, yfx, fx, fy, xf, yf)
 - **Configurable bracket syntax** - lists, curly braces, or custom delimiters with optional tail separators
 - **Modular lexer extensions** - composable number format readers
+- **Embeddable as a sublanguage** - `parseExprPartial` with stop-sets lets you use the precedence climber inside a larger parser
 - **Cross-platform** - JVM, JavaScript (Scala.js), and Native (Scala Native)
 
 ## Installation
@@ -99,6 +100,23 @@ val myLexer = Lexer(
 
 val myParser = Parser(myOperators, myBrackets)
 ```
+
+## Embedding as a Sublanguage
+
+Use `parseExprPartial` to embed the precedence climber inside a larger recursive descent parser. It returns the parsed term and the remaining token stream, stopping at tokens specified in the stop-set:
+
+```scala
+val exprParser = Parser(myOperators, myBrackets)
+
+def parseIf(tokens: LazyList[Token]): (IfExpr, LazyList[Token]) =
+  val toks = tokens.tail // consume 'if'
+  val (cond, rest1) = exprParser.parseExprPartial(toks, stopAt = Set("then"))
+  val rest2 = consumeKeyword(rest1, "then")
+  val (body, rest3) = exprParser.parseExprPartial(rest2, stopAt = Set("else", ";"))
+  // ...
+```
+
+The stop-set is context-dependent — each call site specifies which tokens delimit the expression in that syntactic position. Stop tokens are not consumed, so the outer parser can inspect them. Tokens inside parentheses, brackets, and functor arguments are unaffected by the stop-set, since their delimiters naturally stop expression parsing.
 
 ## Operator Fixity Types
 
